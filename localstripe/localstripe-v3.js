@@ -80,8 +80,9 @@ function openModal(text, confirmText, cancelText) {
 }
 
 class Element {
-  constructor() {
+  constructor(elements) {
     this.listeners = {};
+    this.elements = elements;
   }
 
   mount(domElement) {
@@ -93,7 +94,7 @@ class Element {
     span.textContent = 'localstripe: ';
     domElement.appendChild(span);
 
-    const inputs = {
+    this.inputs = {
       number: null,
       exp_month: null,
       exp_year: null,
@@ -104,41 +105,53 @@ class Element {
     const changed = event => {
       this.value = {
         card: {
-          number: inputs.number.value,
-          exp_month: inputs.exp_month.value,
-          exp_year: '20' + inputs.exp_year.value,
-          cvc: inputs.cvc.value,
+          number: this.inputs.number.value,
+          exp_month: this.inputs.exp_month.value,
+          exp_year: '20' + this.inputs.exp_year.value,
+          cvc: this.inputs.cvc.value,
         },
-        postal_code: inputs.postal_code.value,
+        postal_code: this.inputs.postal_code.value,
       }
 
-      if (event.target === inputs.number &&
+      if (event.target === this.inputs.number &&
           this.value.card.number.length >= 16) {
-        inputs.exp_month.focus();
-      } else if (event.target === inputs.exp_month &&
+        this.inputs.exp_month.focus();
+      } else if (event.target === this.inputs.exp_month &&
                  parseInt(this.value.card.exp_month) > 1) {
-        inputs.exp_year.focus();
-      } else if (event.target === inputs.exp_year &&
+        this.inputs.exp_year.focus();
+      } else if (event.target === this.inputs.exp_year &&
                  this.value.card.exp_year.length >= 4) {
-        inputs.cvc.focus();
-      } else if (event.target === inputs.cvc &&
+        this.inputs.cvc.focus();
+      } else if (event.target === this.inputs.cvc &&
                  this.value.card.cvc.length >= 3) {
-        inputs.postal_code.focus();
+        this.inputs.postal_code.focus();
       }
 
       (this.listeners['change'] || []).forEach(handler => handler());
     };
 
-    Object.keys(inputs).forEach(field => {
-      inputs[field] = document.createElement('input');
-      inputs[field].setAttribute('type', 'text');
-      inputs[field].setAttribute('placeholder', field);
-      inputs[field].setAttribute('size', field === 'number' ? 16 :
+    Object.keys(this.inputs).forEach(field => {
+      this.inputs[field] = document.createElement('input');
+      this.inputs[field].setAttribute('type', 'text');
+      this.inputs[field].setAttribute('placeholder', field);
+      this.inputs[field].setAttribute('size', field === 'number' ? 16 :
                                          field === 'postal_code' ? 5 :
                                          field === 'cvc' ? 3 : 2);
-      inputs[field].oninput = changed;
-      domElement.appendChild(inputs[field]);
+      this.inputs[field].oninput = changed;
+      domElement.appendChild(this.inputs[field]);
     });
+  }
+
+  unmount() {
+    Object.keys(this.inputs).forEach(field => {
+      this.inputs[field].remove();
+      this.inputs[field] = null;
+    })
+  }
+
+  destroy() {
+    this.unmount();
+    this.elements.cardElement = undefined;
   }
 
   on(event, handler) {
@@ -151,17 +164,25 @@ Stripe = (apiKey) => {
   return {
     elements: () => {
       return {
-        create: (type, options) => {
+        create: function(type, options) {
           console.log('localstripe: Stripe().elements().create()');
-          return new Element();
+          if (this.cardElement) {
+            throw new Error("Can only create one Element of type card");
+          }
+          this.cardElement = new Element(this);
+          return this.cardElement;
         },
+        getElement: function(type) {
+          console.log('localstripe: Stripe().elements().getElement()');
+          return this.cardElement || null;
+        }
       };
     },
     createToken: async (element) => {
       console.log('localstripe: Stripe().createToken()');
       let body = [];
       Object.keys(element.value.card).forEach(field => {
-        body.push('card[' + field + ']=' + card.value.card[field]);
+        body.push('card[' + field + ']=' + element.value.card[field]);
       });
       body.push('key=' + apiKey);
       body.push('payment_user_agent=localstripe');
@@ -357,6 +378,8 @@ Stripe = (apiKey) => {
         }
       }
     },
+
+    createPaymentMethod: async () => ({}),
   };
 };
 

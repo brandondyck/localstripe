@@ -24,7 +24,7 @@ import socket
 
 from aiohttp import web
 
-from .resources import Charge, Coupon, Customer, \
+from .resources import BalanceTransaction, Charge, Coupon, Customer, \
                        Event, Invoice, InvoiceItem, PaymentIntent, \
                        PaymentMethod, Plan, Product, Refund, SetupIntent, \
                        Source, Subscription, SubscriptionItem, TaxRate, \
@@ -264,7 +264,7 @@ for method, url, func in extra_apis:
     app.router.add_route(method, url, api_extra(func, url))
 
 
-for cls in (Charge, Coupon, Customer, Event, Invoice, InvoiceItem,
+for cls in (BalanceTransaction, Charge, Coupon, Customer, Event, Invoice, InvoiceItem,
             PaymentIntent, PaymentMethod, Plan, Product, Refund, SetupIntent,
             Source, Subscription, SubscriptionItem, TaxRate, Token):
     for method, url, func in (
